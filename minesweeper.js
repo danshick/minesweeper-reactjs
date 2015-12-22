@@ -33,22 +33,27 @@ var vcell = React.createClass({displayName: 'cell',
     var imgsrc;
     if( this.props.value == 'e' || this.props.value == 'b' ){
       imgsrc = icons.blank;
+      if( this.props.flag ) imgsrc = icons.flag;
     }
     else if( this.props.value == 'B' ){
       imgsrc = icons.explodedBomb;
+    }
+    else if( this.props.value == 'E' ){
+      imgsrc = icons.exposedBomb;
     }
     else{
       imgsrc = icons.bombs[this.props.value]
     }
       return React.createElement("div", {className: "cell",
-                                          onClick: this.props.click.bind(this, this.props.xpos, this.props.ypos ),
+                                          onClick: this.props.click.bind(null, this.props.xpos, this.props.ypos ),
+                                          onContextMenu: this.props.rightclick.bind(null, this.props.xpos, this.props.ypos ),
                                           "data-xpos": this.props.xpos, 
                                           "data-ypos": this.props.ypos, 
-                                          key: this.props.xpos+""+this.props.ypos}, 
+                                          key: "celldiv"+this.props.xpos+"_"+this.props.ypos}, 
                                           [
                                             React.createElement("img", 
                                               {src: imgsrc, 
-                                                key: "img"+this.props.xpos+""+this.props.ypos 
+                                                key: "img"+this.props.xpos+"_"+this.props.ypos 
                                               }
                                             )
                                           ]);
@@ -58,16 +63,24 @@ var vcell = React.createClass({displayName: 'cell',
 var board = React.createClass({
   displayName: 'board',
   handleClick: function(x, y){
-    console.log("x: " + x + "   y: " + y + "   val: " + this.getGridValue(x, y));
+    //console.log("x: " + x + "   y: " + y + "   val: " + this.getGridValue(x, y));
     if(this.state.isGameOver) return;
+    if( this.getGridFlag(x, y) ) return;
     this.revealSpace(x, y);
+  },
+  handleRightClick: function(x, y, e){
+    e.preventDefault();
+    if(this.state.isGameOver) return;
+    var tmpflag = this.getGridFlag(x, y);
+    if(tmpflag) return this.setGridFlag(x, y, false);
+    return this.setGridFlag(x, y, true);
   },
   gameOver: function(){
     this.setState({isGameOver: true});
     for( var i = 0; i < boardwidth; i++){
       for( var j = 0; j < boardheight; j++){
         if( this.getGridValue(i, j) == "b" ){
-          this.setGridValue(i, j, "B");
+          this.setGridValue(i, j, "E");
         }
       }
     }
@@ -116,15 +129,32 @@ var board = React.createClass({
     //grid values:
     //b - unclicked bomb
     //B - clicked bomb (game over)
+    //E - unclicked exposed bomb (non-clicked game over bombs)
     //e - unclicked empty square
     //0-8 - clicked empty square (with renderable adjacency value)
     var grid = [];
     for( var y = 0; y < boardheight; y++ ){
       for( var x = 0; x < boardwidth; x++ ){
-        grid.push(React.createElement(vcell, {xpos: x, ypos: y, click: this.handleClick, value: "e"}));
+        grid.push(React.createElement(vcell, {xpos: x, ypos: y,
+                                              click: this.handleClick,
+                                              rightclick: this.handleRightClick,
+                                              value: "e",
+                                              flag: false,
+                                              key: "cell"+x+"_"+y}));
       }
     }
     return grid;
+  },
+  getGridFlag: function(x, y){
+    if(x >= 0 && x < boardwidth && y >= 0 && y < boardheight){
+      return this.state.grid[y*boardwidth + x].props.flag;
+    }
+    return 0;
+  },
+  setGridFlag: function(x, y, flag){
+    tmpGrid = this.state.grid;
+    tmpGrid[y*boardwidth + x] = React.cloneElement(tmpGrid[y*boardwidth + x], {flag: flag});
+    this.setState({grid: tmpGrid});
   },
   getGridValue: function(x, y){
     if(x >= 0 && x < boardwidth && y >= 0 && y < boardheight){
@@ -134,7 +164,7 @@ var board = React.createClass({
   },
   setGridValue: function(x, y, val){
     tmpGrid = this.state.grid;
-    tmpGrid[y*boardwidth + x] = React.createElement(vcell, {xpos: x, ypos: y, click: this.handleClick, value: val});
+    tmpGrid[y*boardwidth + x] = React.cloneElement(tmpGrid[y*boardwidth + x], {value: val});
     this.setState({grid: tmpGrid});
   },
   placeBomb: function(){
@@ -155,7 +185,8 @@ var board = React.createClass({
     }
   },
   render: function(){
-    return React.createElement('div', {id: "board", width: "300px"}, this.state.grid);
+    var boardStyle = {width: boardwidth*20 + "px"};
+    return React.createElement('div', {id: "board", style: boardStyle}, this.state.grid);
   }
 });
 
@@ -164,4 +195,4 @@ ReactDOM.render(
   document.getElementById('container')
 );
 
-console.log("done");
+//console.log("done");
